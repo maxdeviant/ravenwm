@@ -101,38 +101,41 @@ fn main() {
 
             println!("Received event {}", response_type);
 
-            if response_type == xcb::KEY_PRESS as u8 {
-                let key_press: &xcb::KeyPressEvent = unsafe { xcb::cast_event(&event) };
+            match response_type {
+                xcb::KEY_PRESS => {
+                    let key_press: &xcb::KeyPressEvent = unsafe { xcb::cast_event(&event) };
 
-                println!("Key '{}' pressed", key_press.detail());
+                    println!("Key '{}' pressed", key_press.detail());
 
-                // Q
-                if key_press.detail() == 0x18 {
-                    let is_icccm = false;
-                    if is_icccm {
-                        let wm_protocols = dbg!(wm_protocols);
-                        let wm_delete_window = dbg!(wm_delete_window);
+                    // Q
+                    if key_press.detail() == 0x18 {
+                        let is_icccm = false;
+                        if is_icccm {
+                            let wm_protocols = dbg!(wm_protocols);
+                            let wm_delete_window = dbg!(wm_delete_window);
 
-                        let event = xcb::ClientMessageEvent::new(
-                            32,
-                            window,
-                            wm_protocols,
-                            xcb::ClientMessageData::from_data32([
-                                wm_delete_window,
-                                xcb::CURRENT_TIME,
-                                0,
-                                0,
-                                0,
-                            ]),
-                        );
+                            let event = xcb::ClientMessageEvent::new(
+                                32,
+                                window,
+                                wm_protocols,
+                                xcb::ClientMessageData::from_data32([
+                                    wm_delete_window,
+                                    xcb::CURRENT_TIME,
+                                    0,
+                                    0,
+                                    0,
+                                ]),
+                            );
 
-                        println!("Sending WM_DELETE_WINDOW event");
-                        xcb::send_event(&conn, false, window, xcb::EVENT_MASK_NO_EVENT, &event);
-                    } else {
-                        println!("Killing client: {}", window);
-                        xcb::kill_client(&conn, window);
+                            println!("Sending WM_DELETE_WINDOW event");
+                            xcb::send_event(&conn, false, window, xcb::EVENT_MASK_NO_EVENT, &event);
+                        } else {
+                            println!("Killing client: {}", window);
+                            xcb::kill_client(&conn, window);
+                        }
                     }
                 }
+                _ => {}
             }
         }
     }
