@@ -47,10 +47,6 @@ fn main() {
         title.as_bytes(),
     );
 
-    println!("Flushing connection");
-
-    conn.flush();
-
     let (wm_protocols, wm_delete_window) = {
         let wm_protocols_cookie = xcb::intern_atom(&conn, false, "WM_PROTOCOLS");
         let wm_delete_window_cookie = xcb::intern_atom(&conn, false, "WM_DELETE_WINDOW");
@@ -63,6 +59,9 @@ fn main() {
 
     loop {
         println!("Loop");
+
+        println!("Flushing connection");
+        conn.flush();
 
         for message in ipc_server.incoming() {
             println!("Message: {:?}", message);
@@ -142,22 +141,9 @@ fn main() {
 
                         println!("Sending WM_DELETE_WINDOW event");
                         xcb::send_event(&conn, false, window, xcb::EVENT_MASK_NO_EVENT, &event);
-
-                        println!("Flushing connection");
-                        let result = conn.flush();
-                        println!(
-                            "Flush was {}",
-                            if result {
-                                "successful"
-                            } else {
-                                "not successful"
-                            },
-                        )
                     } else {
                         println!("Killing client: {}", window);
                         xcb::kill_client(&conn, window);
-
-                        conn.flush();
                     }
                 }
             }
