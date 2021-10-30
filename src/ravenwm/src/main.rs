@@ -163,13 +163,67 @@ fn main() {
                 xcb::MAP_REQUEST => {
                     println!("XCB_MAP_REQUEST");
 
-                    let _map_request: &xcb::MapRequestEvent = unsafe { xcb::cast_event(&event) };
+                    let map_request: &xcb::MapRequestEvent = unsafe { xcb::cast_event(&event) };
+
+                    xcb::map_window(&conn, map_request.window());
                 }
                 xcb::CONFIGURE_REQUEST => {
                     println!("XCB_CONFIGURE_REQUEST");
 
-                    let _configure_request: &xcb::ConfigureRequestEvent =
+                    let configure_request: &xcb::ConfigureRequestEvent =
                         unsafe { xcb::cast_event(&event) };
+
+                    let mut values = Vec::with_capacity(7);
+
+                    if configure_request.value_mask() & (xcb::CONFIG_WINDOW_X as u16) == 0 {
+                        values.push((xcb::CONFIG_WINDOW_X as u16, configure_request.x() as u32));
+                    }
+
+                    if configure_request.value_mask() & (xcb::CONFIG_WINDOW_Y as u16) == 0 {
+                        values.push((xcb::CONFIG_WINDOW_Y as u16, configure_request.y() as u32));
+                    }
+
+                    if configure_request.value_mask() & (xcb::CONFIG_WINDOW_WIDTH as u16) == 0 {
+                        values.push((
+                            xcb::CONFIG_WINDOW_WIDTH as u16,
+                            configure_request.width() as u32,
+                        ));
+                    }
+
+                    if configure_request.value_mask() & (xcb::CONFIG_WINDOW_HEIGHT as u16) == 0 {
+                        values.push((
+                            xcb::CONFIG_WINDOW_HEIGHT as u16,
+                            configure_request.height() as u32,
+                        ));
+                    }
+
+                    if configure_request.value_mask() & (xcb::CONFIG_WINDOW_BORDER_WIDTH as u16)
+                        == 0
+                    {
+                        values.push((
+                            xcb::CONFIG_WINDOW_BORDER_WIDTH as u16,
+                            configure_request.border_width() as u32,
+                        ));
+                    }
+
+                    if configure_request.value_mask() & (xcb::CONFIG_WINDOW_SIBLING as u16) == 0 {
+                        values.push((
+                            xcb::CONFIG_WINDOW_SIBLING as u16,
+                            configure_request.sibling(),
+                        ));
+                    }
+
+                    if configure_request.value_mask() & (xcb::CONFIG_WINDOW_STACK_MODE as u16) == 0
+                    {
+                        values.push((
+                            xcb::CONFIG_WINDOW_STACK_MODE as u16,
+                            configure_request.stack_mode() as u32,
+                        ));
+                    }
+
+                    let values = dbg!(values);
+
+                    xcb::configure_window(&conn, configure_request.window(), values.as_slice());
                 }
                 xcb::MOTION_NOTIFY => {
                     println!("XCB_MOTION_NOTIFY");
