@@ -281,6 +281,7 @@ fn main() {
                         println!("Child window: {}", child_window);
 
                         if child_window != xcb::NONE {
+                            println!("Focusing window: {}", child_window);
                             focused_window = Some(child_window);
                         }
                     }
