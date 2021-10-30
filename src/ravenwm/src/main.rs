@@ -224,6 +224,15 @@ fn main() {
                     let values = dbg!(values);
 
                     xcb::configure_window(&conn, configure_request.window(), values.as_slice());
+
+                    xcb::change_window_attributes(
+                        &conn,
+                        configure_request.window(),
+                        &[(
+                            xcb::CW_EVENT_MASK,
+                            xcb::EVENT_MASK_PROPERTY_CHANGE | xcb::EVENT_MASK_FOCUS_CHANGE,
+                        )],
+                    );
                 }
                 xcb::MOTION_NOTIFY => {
                     println!("XCB_MOTION_NOTIFY");
