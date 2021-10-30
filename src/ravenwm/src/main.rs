@@ -38,30 +38,39 @@ fn main() {
         &[],
     );
 
-    let test_window = conn.generate_id();
+    let create_test_window = || {
+        let test_window = conn.generate_id();
 
-    xcb::create_window(
-        &conn,
-        xcb::COPY_FROM_PARENT as u8,
-        test_window,
-        screen.root(),
-        0,
-        0,
-        150,
-        150,
-        10,
-        xcb::WINDOW_CLASS_INPUT_OUTPUT as u16,
-        screen.root_visual(),
-        &[
-            (xcb::CW_BACK_PIXEL, screen.white_pixel()),
-            (
-                xcb::CW_EVENT_MASK,
-                xcb::EVENT_MASK_EXPOSURE | xcb::EVENT_MASK_KEY_PRESS,
-            ),
-        ],
-    );
+        xcb::create_window(
+            &conn,
+            xcb::COPY_FROM_PARENT as u8,
+            test_window,
+            screen.root(),
+            0,
+            0,
+            150,
+            150,
+            10,
+            xcb::WINDOW_CLASS_INPUT_OUTPUT as u16,
+            screen.root_visual(),
+            &[
+                (xcb::CW_BACK_PIXEL, screen.white_pixel()),
+                (
+                    xcb::CW_EVENT_MASK,
+                    xcb::EVENT_MASK_EXPOSURE | xcb::EVENT_MASK_KEY_PRESS,
+                ),
+            ],
+        );
 
-    xcb::map_window(&conn, test_window);
+        xcb::map_window(&conn, test_window);
+
+        test_window
+    };
+
+    let test_window = create_test_window();
+    let test_window_2 = create_test_window();
+
+    let mut focused_window = Some(test_window);
 
     let title = "Basic Window";
     xcb::change_property(
@@ -131,14 +140,16 @@ fn main() {
                     }
                 }
                 ipc::Message::MoveWindow { x, y } => {
-                    xcb::configure_window(
-                        &conn,
-                        test_window,
-                        &[
-                            (xcb::CONFIG_WINDOW_X as u16, x),
-                            (xcb::CONFIG_WINDOW_Y as u16, y),
-                        ],
-                    );
+                    if let Some(focused_window) = focused_window {
+                        xcb::configure_window(
+                            &conn,
+                            focused_window,
+                            &[
+                                (xcb::CONFIG_WINDOW_X as u16, x),
+                                (xcb::CONFIG_WINDOW_Y as u16, y),
+                            ],
+                        );
+                    }
                 }
             }
         }
@@ -199,12 +210,28 @@ fn main() {
                         }
                     }
                 }
+                xcb::BUTTON_PRESS => {
+                    let button_press: &xcb::ButtonPressEvent = unsafe { xcb::cast_event(&event) };
+
+                    println!("Mouse button '{}' pressed", button_press.detail());
+
+                    if button_press.detail() == 0x1 {
+                        let child_window = button_press.child();
+
+                        println!("Child window: {}", child_window);
+
+                        if child_window != xcb::NONE {
+                            focused_window = Some(child_window);
+                        }
+                    }
+                }
                 _ => {}
             }
         }
     }
 
     xcb::destroy_window(&conn, test_window);
+    xcb::destroy_window(&conn, test_window_2);
     xcb::destroy_window(&conn, meta_window);
 
     conn.flush();
