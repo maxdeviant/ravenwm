@@ -171,6 +171,12 @@ fn main() {
                     let _configure_request: &xcb::ConfigureRequestEvent =
                         unsafe { xcb::cast_event(&event) };
                 }
+                xcb::MOTION_NOTIFY => {
+                    println!("XCB_MOTION_NOTIFY");
+
+                    let _motion_notify: &xcb::MotionNotifyEvent =
+                        unsafe { xcb::cast_event(&event) };
+                }
                 xcb::KEY_PRESS => {
                     let key_press: &xcb::KeyPressEvent = unsafe { xcb::cast_event(&event) };
 
