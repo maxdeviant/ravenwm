@@ -11,6 +11,7 @@ struct Args {
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "snake_case")]
 enum Command {
+    Quit,
     MoveWindow { x: u32, y: u32 },
     CloseWindow,
 }
@@ -21,6 +22,9 @@ fn main(args: Args) {
     let mut ipc_client = ipc::Client::connect(&socket);
 
     match args.command {
+        Command::Quit => {
+            ipc_client.send(&ipc::Message::Quit);
+        }
         Command::MoveWindow { x, y } => {
             ipc_client.send(&ipc::Message::MoveWindow { x, y });
         }

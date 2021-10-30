@@ -1,6 +1,12 @@
 use ravenwm_core::ipc;
 use xcb;
 
+/// The event mask for the root window.
+const ROOT_EVENT_MASK: u32 = xcb::EVENT_MASK_SUBSTRUCTURE_REDIRECT
+    | xcb::EVENT_MASK_SUBSTRUCTURE_NOTIFY
+    | xcb::EVENT_MASK_STRUCTURE_NOTIFY
+    | xcb::EVENT_MASK_BUTTON_PRESS;
+
 fn main() {
     let socket = ipc::SocketPath::new();
     let ipc_server = ipc::Server::bind(&socket);
@@ -9,20 +15,35 @@ fn main() {
     let setup = conn.get_setup();
     let screen = setup.roots().nth(preferred_screen as usize).unwrap();
 
-    let window = conn.generate_id();
+    xcb::change_window_attributes_checked(
+        &conn,
+        screen.root(),
+        &[(xcb::CW_EVENT_MASK, ROOT_EVENT_MASK)],
+    );
 
-    let values = [
-        (xcb::CW_BACK_PIXEL, screen.white_pixel()),
-        (
-            xcb::CW_EVENT_MASK,
-            xcb::EVENT_MASK_EXPOSURE | xcb::EVENT_MASK_KEY_PRESS,
-        ),
-    ];
+    let meta_window = conn.generate_id();
 
     xcb::create_window(
         &conn,
         xcb::COPY_FROM_PARENT as u8,
-        window,
+        meta_window,
+        screen.root(),
+        -1,
+        -1,
+        1,
+        1,
+        0,
+        xcb::WINDOW_CLASS_INPUT_ONLY as u16,
+        xcb::NONE,
+        &[],
+    );
+
+    let test_window = conn.generate_id();
+
+    xcb::create_window(
+        &conn,
+        xcb::COPY_FROM_PARENT as u8,
+        test_window,
         screen.root(),
         0,
         0,
@@ -31,16 +52,22 @@ fn main() {
         10,
         xcb::WINDOW_CLASS_INPUT_OUTPUT as u16,
         screen.root_visual(),
-        &values,
+        &[
+            (xcb::CW_BACK_PIXEL, screen.white_pixel()),
+            (
+                xcb::CW_EVENT_MASK,
+                xcb::EVENT_MASK_EXPOSURE | xcb::EVENT_MASK_KEY_PRESS,
+            ),
+        ],
     );
 
-    xcb::map_window(&conn, window);
+    xcb::map_window(&conn, test_window);
 
     let title = "Basic Window";
     xcb::change_property(
         &conn,
         xcb::PROP_MODE_REPLACE as u8,
-        window,
+        test_window,
         xcb::ATOM_WM_NAME,
         xcb::ATOM_STRING,
         8,
@@ -57,13 +84,17 @@ fn main() {
         )
     };
 
-    loop {
+    'ravenwm: loop {
         conn.flush();
 
         if let Some(message) = ipc_server.accept() {
             println!("Message: {:?}", message);
 
             match message {
+                ipc::Message::Quit => {
+                    println!("Quit");
+                    break 'ravenwm;
+                }
                 ipc::Message::Ping => {
                     println!("Pong")
                 }
@@ -75,7 +106,7 @@ fn main() {
 
                         let event = xcb::ClientMessageEvent::new(
                             32,
-                            window,
+                            test_window,
                             wm_protocols,
                             xcb::ClientMessageData::from_data32([
                                 wm_delete_window,
@@ -87,16 +118,22 @@ fn main() {
                         );
 
                         println!("Sending WM_DELETE_WINDOW event");
-                        xcb::send_event(&conn, false, window, xcb::EVENT_MASK_NO_EVENT, &event);
+                        xcb::send_event(
+                            &conn,
+                            false,
+                            test_window,
+                            xcb::EVENT_MASK_NO_EVENT,
+                            &event,
+                        );
                     } else {
-                        println!("Killing client: {}", window);
-                        xcb::kill_client(&conn, window);
+                        println!("Killing client: {}", test_window);
+                        xcb::kill_client(&conn, test_window);
                     }
                 }
                 ipc::Message::MoveWindow { x, y } => {
                     xcb::configure_window(
                         &conn,
-                        window,
+                        test_window,
                         &[
                             (xcb::CONFIG_WINDOW_X as u16, x),
                             (xcb::CONFIG_WINDOW_Y as u16, y),
@@ -112,6 +149,9 @@ fn main() {
             println!("Received event {}", response_type);
 
             match response_type {
+                xcb::MAP_REQUEST => {
+                    println!("XCB_MAP_REQUEST");
+                }
                 xcb::KEY_PRESS => {
                     let key_press: &xcb::KeyPressEvent = unsafe { xcb::cast_event(&event) };
 
@@ -126,7 +166,7 @@ fn main() {
 
                             let event = xcb::ClientMessageEvent::new(
                                 32,
-                                window,
+                                test_window,
                                 wm_protocols,
                                 xcb::ClientMessageData::from_data32([
                                     wm_delete_window,
@@ -138,15 +178,29 @@ fn main() {
                             );
 
                             println!("Sending WM_DELETE_WINDOW event");
-                            xcb::send_event(&conn, false, window, xcb::EVENT_MASK_NO_EVENT, &event);
+                            xcb::send_event(
+                                &conn,
+                                false,
+                                test_window,
+                                xcb::EVENT_MASK_NO_EVENT,
+                                &event,
+                            );
                         } else {
-                            println!("Killing client: {}", window);
-                            xcb::kill_client(&conn, window);
+                            println!("Killing client: {}", test_window);
+                            xcb::kill_client(&conn, test_window);
                         }
                     }
+                }
+                xcb::CONFIGURE_REQUEST => {
+                    println!("XCB_CONFIGURE_REQUEST");
                 }
                 _ => {}
             }
         }
     }
+
+    xcb::destroy_window(&conn, test_window);
+    xcb::destroy_window(&conn, meta_window);
+
+    conn.flush();
 }
