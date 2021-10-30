@@ -151,6 +151,14 @@ fn main() {
             match response_type {
                 xcb::MAP_REQUEST => {
                     println!("XCB_MAP_REQUEST");
+
+                    let _map_request: &xcb::MapRequestEvent = unsafe { xcb::cast_event(&event) };
+                }
+                xcb::CONFIGURE_REQUEST => {
+                    println!("XCB_CONFIGURE_REQUEST");
+
+                    let _configure_request: &xcb::ConfigureRequestEvent =
+                        unsafe { xcb::cast_event(&event) };
                 }
                 xcb::KEY_PRESS => {
                     let key_press: &xcb::KeyPressEvent = unsafe { xcb::cast_event(&event) };
@@ -190,9 +198,6 @@ fn main() {
                             xcb::kill_client(&conn, test_window);
                         }
                     }
-                }
-                xcb::CONFIGURE_REQUEST => {
-                    println!("XCB_CONFIGURE_REQUEST");
                 }
                 _ => {}
             }
