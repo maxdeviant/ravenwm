@@ -31,21 +31,21 @@ impl SocketPath {
 }
 
 pub struct Client {
-    stream: UnixStream,
+    socket: UnixStream,
 }
 
 impl Client {
-    pub fn connect(socket: &SocketPath) -> Self {
-        let stream =
-            UnixStream::connect(&socket.0).expect(&format!("Failed to connect to {}", socket.0));
+    pub fn connect(socket_path: &SocketPath) -> Self {
+        let socket = UnixStream::connect(&socket_path.0)
+            .expect(&format!("Failed to connect to {}", socket_path.0));
 
-        Self { stream }
+        Self { socket }
     }
 
     pub fn send(&mut self, message: &Message) {
         let buffer = bincode::serialize(message).expect("Failed to serialize message");
 
-        self.stream
+        self.socket
             .write_all(&buffer)
             .expect("Failed to send message");
     }
@@ -56,11 +56,13 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn bind(socket: &SocketPath) -> Self {
-        socket.delete_if_exists().expect("Failed to delete socket");
+    pub fn bind(socket_path: &SocketPath) -> Self {
+        socket_path
+            .delete_if_exists()
+            .expect("Failed to delete socket");
 
-        let listener =
-            UnixListener::bind(&socket.0).expect(&format!("Failed to connect to {}", socket.0));
+        let listener = UnixListener::bind(&socket_path.0)
+            .expect(&format!("Failed to connect to {}", socket_path.0));
 
         Self { listener }
     }
