@@ -70,11 +70,8 @@ impl Server {
     }
 
     pub fn accept(&self) -> Option<Message> {
-        // println!("accept");
         match self.listener.accept() {
             Ok((mut socket, _)) => {
-                println!("Accepted");
-
                 let mut buffer = Vec::new();
                 socket
                     .read_to_end(&mut buffer)

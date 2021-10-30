@@ -58,12 +58,7 @@ fn main() {
     };
 
     loop {
-        // println!("Loop");
-
-        // println!("Flushing connection");
         conn.flush();
-
-        // println!("Accepting IPC events");
 
         if let Some(message) = ipc_server.accept() {
             println!("Message: {:?}", message);
@@ -114,54 +109,6 @@ fn main() {
             }
         }
 
-        // for message in ipc_server.incoming() {
-        //     println!("Message: {:?}", message);
-
-        //     match message {
-        //         ipc::Message::CloseWindow => {
-        //             let is_icccm = false;
-        //             if is_icccm {
-        //                 let wm_protocols = dbg!(wm_protocols);
-        //                 let wm_delete_window = dbg!(wm_delete_window);
-
-        //                 let event = xcb::ClientMessageEvent::new(
-        //                     32,
-        //                     window,
-        //                     wm_protocols,
-        //                     xcb::ClientMessageData::from_data32([
-        //                         wm_delete_window,
-        //                         xcb::CURRENT_TIME,
-        //                         0,
-        //                         0,
-        //                         0,
-        //                     ]),
-        //                 );
-
-        //                 println!("Sending WM_DELETE_WINDOW event");
-        //                 xcb::send_event(&conn, false, window, xcb::EVENT_MASK_NO_EVENT, &event);
-
-        //                 println!("Flushing connection");
-        //                 let result = conn.flush();
-        //                 println!(
-        //                     "Flush was {}",
-        //                     if result {
-        //                         "successful"
-        //                     } else {
-        //                         "not successful"
-        //                     },
-        //                 )
-        //             } else {
-        //                 println!("Killing client: {}", window);
-        //                 xcb::kill_client(&conn, window);
-
-        //                 conn.flush();
-        //             }
-        //         }
-        //     }
-        // }
-
-        // println!("After IPC");
-
         while let Some(event) = conn.poll_for_event() {
             let response_type = event.response_type();
 
@@ -201,7 +148,5 @@ fn main() {
                 }
             }
         }
-
-        // println!("After event poll");
     }
 }
