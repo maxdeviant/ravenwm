@@ -1,5 +1,7 @@
 # ravenwm
 
+A sleek, hybrid window manager with modern sensibilities.
+
 ## Development
 
 To work on `ravenwm`, you'll need a nested X server:
