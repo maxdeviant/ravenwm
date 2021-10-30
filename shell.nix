@@ -1,4 +1,4 @@
-with import <nixpkgs> {};
+with import <nixpkgs> {}; with xlibs;
 
 stdenv.mkDerivation {
   name = "ravenwm";
@@ -6,5 +6,6 @@ stdenv.mkDerivation {
   buildInputs = [
     stdenv
     pkg-config
+    libX11
   ];
 }
