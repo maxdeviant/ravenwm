@@ -88,22 +88,9 @@ fn main() {
 
                         println!("Sending WM_DELETE_WINDOW event");
                         xcb::send_event(&conn, false, window, xcb::EVENT_MASK_NO_EVENT, &event);
-
-                        println!("Flushing connection");
-                        let result = conn.flush();
-                        println!(
-                            "Flush was {}",
-                            if result {
-                                "successful"
-                            } else {
-                                "not successful"
-                            },
-                        )
                     } else {
                         println!("Killing client: {}", window);
                         xcb::kill_client(&conn, window);
-
-                        conn.flush();
                     }
                 }
             }
