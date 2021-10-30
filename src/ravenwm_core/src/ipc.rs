@@ -1,7 +1,7 @@
 mod message;
 
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, ErrorKind, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 
 pub use message::*;
@@ -64,7 +64,36 @@ impl Server {
         let listener = UnixListener::bind(&socket_path.0)
             .expect(&format!("Failed to connect to {}", socket_path.0));
 
+        listener.set_nonblocking(true).unwrap();
+
         Self { listener }
+    }
+
+    pub fn accept(&self) -> Option<Message> {
+        // println!("accept");
+        match self.listener.accept() {
+            Ok((mut socket, _)) => {
+                println!("Accepted");
+
+                let mut buffer = Vec::new();
+                socket
+                    .read_to_end(&mut buffer)
+                    .expect("Failed to read message");
+
+                let message: Message =
+                    bincode::deserialize(&buffer).expect("Failed to deserialize message");
+
+                Some(message)
+            }
+            Err(err) => {
+                if err.kind() == ErrorKind::WouldBlock {
+                    return None;
+                }
+
+                println!("Socket error: {}", err);
+                None
+            }
+        }
     }
 
     pub fn incoming(&self) -> IncomingMessages<'_> {
