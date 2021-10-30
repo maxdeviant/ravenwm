@@ -1,14 +1,8 @@
-use std::{io::Write, os::unix::net::UnixStream};
+use ravenwm_core::ipc;
 
 fn main() {
-    println!("Hello, world from ravenc!");
+    let socket = ipc::SocketPath::new();
+    let mut ipc_client = ipc::Client::connect(&socket);
 
-    let socket_path = std::env::var("RAVENWM_SOCKET").expect("Failed to read RAVENWM_SOCKET");
-
-    let mut stream =
-        UnixStream::connect(&socket_path).expect(&format!("Failed to connect to {}", socket_path));
-
-    stream
-        .write_all(&"Hello from ravenc".as_bytes())
-        .expect("Failed to write to socket")
+    ipc_client.send(&ipc::Message::CloseWindow);
 }

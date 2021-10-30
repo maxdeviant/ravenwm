@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "src/ravenc",
-    "src/ravenwm"
+    "src/ravenwm",
+    "src/ravenwm_core"
 ]
