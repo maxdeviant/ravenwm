@@ -1,11 +1,25 @@
-use std::{io::Read, os::unix::net::UnixListener};
-
+use std::{
+    fs,
+    io::{self, Read},
+    os::unix::net::UnixListener,
+};
 use xcb;
 
 fn main() {
     println!("Hello, world from ravenwm!");
 
     let socket_path = std::env::var("RAVENWM_SOCKET").expect("Failed to read RAVENWM_SOCKET");
+
+    match fs::remove_file(&socket_path) {
+        Ok(()) => {}
+        Err(err) => {
+            if err.kind() == io::ErrorKind::NotFound {
+                // Nothing to do, since the file does not exist.
+            } else {
+                panic!("{}", err);
+            }
+        }
+    }
 
     let listener =
         UnixListener::bind(&socket_path).expect(&format!("Failed to connect to {}", socket_path));
