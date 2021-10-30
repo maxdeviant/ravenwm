@@ -7,4 +7,9 @@ pub enum Message {
 
     /// Close the active window.
     CloseWindow,
+
+    MoveWindow {
+        x: u32,
+        y: u32,
+    },
 }

@@ -93,6 +93,16 @@ fn main() {
                         xcb::kill_client(&conn, window);
                     }
                 }
+                ipc::Message::MoveWindow { x, y } => {
+                    xcb::configure_window(
+                        &conn,
+                        window,
+                        &[
+                            (xcb::CONFIG_WINDOW_X as u16, x),
+                            (xcb::CONFIG_WINDOW_Y as u16, y),
+                        ],
+                    );
+                }
             }
         }
 

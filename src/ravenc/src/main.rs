@@ -4,5 +4,5 @@ fn main() {
     let socket = ipc::SocketPath::new();
     let mut ipc_client = ipc::Client::connect(&socket);
 
-    ipc_client.send(&ipc::Message::Ping);
+    ipc_client.send(&ipc::Message::MoveWindow { x: 500, y: 500 });
 }
