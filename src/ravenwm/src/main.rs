@@ -23,11 +23,6 @@ fn main() {
 
     let meta_window = conn.generate_id();
 
-    let mut layout_mode = LayoutMode::Tiling;
-    let mut clients: Vec<XClient> = Vec::new();
-
-    let mut window_border_width = 0u32;
-
     xcb::create_window(
         &conn,
         xcb::COPY_FROM_PARENT as u8,
@@ -42,6 +37,11 @@ fn main() {
         xcb::NONE,
         &[],
     );
+
+    let mut layout_mode = LayoutMode::Tiling;
+    let mut clients: Vec<XClient> = Vec::new();
+
+    let mut window_border_width = 0u32;
 
     let mut focused_client = None;
 
