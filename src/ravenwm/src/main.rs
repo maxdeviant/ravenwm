@@ -68,7 +68,7 @@ fn main() {
                     println!("Pong")
                 }
                 ipc::Message::CloseWindow => {
-                    if let Some(focused_client) = focused_client {
+                    if let Some(currently_focused_client) = focused_client {
                         let is_icccm = false;
                         if is_icccm {
                             let wm_protocols = dbg!(wm_protocols);
@@ -76,7 +76,7 @@ fn main() {
 
                             let event = xcb::ClientMessageEvent::new(
                                 32,
-                                focused_client,
+                                currently_focused_client,
                                 wm_protocols,
                                 xcb::ClientMessageData::from_data32([
                                     wm_delete_window,
@@ -91,14 +91,23 @@ fn main() {
                             xcb::send_event(
                                 &conn,
                                 false,
-                                focused_client,
+                                currently_focused_client,
                                 xcb::EVENT_MASK_NO_EVENT,
                                 &event,
                             );
                         } else {
-                            println!("Killing client: {}", focused_client);
-                            xcb::kill_client(&conn, focused_client);
+                            println!("Killing client: {}", currently_focused_client);
+                            xcb::kill_client(&conn, currently_focused_client);
                         }
+
+                        if let Some(currently_focused_index) = clients
+                            .iter()
+                            .position(|client| client.id() == currently_focused_client)
+                        {
+                            clients.remove(currently_focused_index);
+                        }
+
+                        focused_client = clients.last().map(|client| client.id());
                     }
                 }
                 ipc::Message::MoveWindow { x, y } => {
