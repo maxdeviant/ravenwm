@@ -1,3 +1,4 @@
+use hex_color::HexColor;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,5 +16,9 @@ pub enum Message {
 
     SetBorderWidth {
         width: u32,
+    },
+
+    SetBorderColor {
+        color: HexColor,
     },
 }

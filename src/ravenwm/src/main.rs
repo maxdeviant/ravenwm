@@ -47,6 +47,7 @@ fn main() {
     let mut clients: Vec<XClient> = Vec::new();
 
     let mut window_border_width = 0u32;
+    let mut window_border_color = Color::MIDNIGHT_BLUE;
 
     let mut focused_client = None;
 
@@ -165,6 +166,17 @@ fn main() {
                         );
                     }
                 }
+                ipc::Message::SetBorderColor { color } => {
+                    window_border_color = Color::rgb(color.r, color.g, color.b);
+
+                    for client in &clients {
+                        xcb::change_window_attributes(
+                            &conn,
+                            client.id(),
+                            &[(xcb::CW_BORDER_PIXEL, window_border_color.into())],
+                        );
+                    }
+                }
             }
         }
 
@@ -219,7 +231,7 @@ fn main() {
                     xcb::change_window_attributes(
                         &conn,
                         client.id(),
-                        &[(xcb::CW_BORDER_PIXEL, Color::MIDNIGHT_BLUE.into())],
+                        &[(xcb::CW_BORDER_PIXEL, window_border_color.into())],
                     );
 
                     xcb::map_window(&conn, client.id());

@@ -1,3 +1,4 @@
+use hex_color::HexColor;
 use ravenwm_core::ipc;
 use structopt::StructOpt;
 
@@ -15,6 +16,7 @@ enum Command {
     MoveWindow { x: u32, y: u32 },
     CloseWindow,
     BorderWidth { width_in_px: u32 },
+    BorderColor { color: HexColor },
 }
 
 #[paw::main]
@@ -33,7 +35,10 @@ fn main(args: Args) {
             ipc_client.send(&ipc::Message::CloseWindow);
         }
         Command::BorderWidth { width_in_px } => {
-            ipc_client.send(&ipc::Message::SetBorderWidth { width: width_in_px })
+            ipc_client.send(&ipc::Message::SetBorderWidth { width: width_in_px });
+        }
+        Command::BorderColor { color } => {
+            ipc_client.send(&ipc::Message::SetBorderColor { color });
         }
     }
 }
