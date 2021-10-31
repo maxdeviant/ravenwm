@@ -1,5 +1,9 @@
+mod geometry;
+
 use ravenwm_core::ipc;
 use xcb;
+
+use crate::geometry::Rectangle;
 
 /// The event mask for the root window.
 const ROOT_EVENT_MASK: u32 = xcb::EVENT_MASK_SUBSTRUCTURE_REDIRECT
@@ -133,6 +137,16 @@ fn main() {
                         let border_width_delta =
                             window_border_width as i32 - current_border_width as i32;
 
+                        let mut window_dimensions = Rectangle::new(
+                            window_geometry.x(),
+                            window_geometry.y(),
+                            window_geometry.width(),
+                            window_geometry.height(),
+                        );
+
+                        window_dimensions.width -= 2 * border_width_delta as u16;
+                        window_dimensions.height -= 2 * border_width_delta as u16;
+
                         xcb::configure_window(
                             &conn,
                             client.id(),
@@ -140,13 +154,11 @@ fn main() {
                                 (xcb::CONFIG_WINDOW_BORDER_WIDTH as u16, window_border_width),
                                 (
                                     xcb::CONFIG_WINDOW_WIDTH as u16,
-                                    (window_geometry.width() as i32 - 2 * border_width_delta)
-                                        as u32,
+                                    window_dimensions.width as u32,
                                 ),
                                 (
                                     xcb::CONFIG_WINDOW_HEIGHT as u16,
-                                    (window_geometry.height() as i32 - 2 * border_width_delta)
-                                        as u32,
+                                    window_dimensions.height as u32,
                                 ),
                             ],
                         );
@@ -175,25 +187,29 @@ fn main() {
                     let (r, g, b) = (255, 0, 255);
                     let window_border_color = (0xFF << 24) | (r << 16 | g << 8 | b);
 
+                    let mut window_dimensions =
+                        Rectangle::new(0, 0, screen.width_in_pixels(), screen.height_in_pixels());
+
+                    window_dimensions.deflate(window_gap_width as i16, window_gap_width as i16);
+
+                    window_dimensions.width -= 2 * window_border_width as u16;
+                    window_dimensions.height -= 2 * window_border_width as u16;
+
                     match layout_mode {
                         LayoutMode::Tiling => {
                             xcb::configure_window(
                                 &conn,
                                 client.id(),
                                 &[
-                                    (xcb::CONFIG_WINDOW_X as u16, 0 + window_gap_width),
-                                    (xcb::CONFIG_WINDOW_Y as u16, 0 + window_gap_width),
+                                    (xcb::CONFIG_WINDOW_X as u16, window_dimensions.x as u32),
+                                    (xcb::CONFIG_WINDOW_Y as u16, window_dimensions.y as u32),
                                     (
                                         xcb::CONFIG_WINDOW_WIDTH as u16,
-                                        screen.width_in_pixels() as u32
-                                            - 2 * window_border_width
-                                            - 2 * window_gap_width,
+                                        window_dimensions.width as u32,
                                     ),
                                     (
                                         xcb::CONFIG_WINDOW_HEIGHT as u16,
-                                        screen.height_in_pixels() as u32
-                                            - 2 * window_border_width
-                                            - 2 * window_gap_width,
+                                        window_dimensions.height as u32,
                                     ),
                                     (xcb::CONFIG_WINDOW_BORDER_WIDTH as u16, window_border_width),
                                 ],
