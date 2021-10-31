@@ -137,7 +137,11 @@ fn main() {
                         id: map_request.window(),
                     };
 
-                    let window_border_width = 4 as u32;
+                    let window_gap_width = 16 as u32;
+                    let window_border_width = 8 as u32;
+
+                    let (r, g, b) = (255, 0, 255);
+                    let window_border_color = (0xFF << 24) | (r << 16 | g << 8 | b);
 
                     match layout_mode {
                         LayoutMode::Tiling => {
@@ -145,15 +149,19 @@ fn main() {
                                 &conn,
                                 client.id(),
                                 &[
-                                    (xcb::CONFIG_WINDOW_X as u16, 0),
-                                    (xcb::CONFIG_WINDOW_Y as u16, 0),
+                                    (xcb::CONFIG_WINDOW_X as u16, 0 + window_gap_width),
+                                    (xcb::CONFIG_WINDOW_Y as u16, 0 + window_gap_width),
                                     (
                                         xcb::CONFIG_WINDOW_WIDTH as u16,
-                                        screen.width_in_pixels() as u32 - 2 * window_border_width,
+                                        screen.width_in_pixels() as u32
+                                            - 2 * window_border_width
+                                            - 2 * window_gap_width,
                                     ),
                                     (
                                         xcb::CONFIG_WINDOW_HEIGHT as u16,
-                                        screen.height_in_pixels() as u32 - 2 * window_border_width,
+                                        screen.height_in_pixels() as u32
+                                            - 2 * window_border_width
+                                            - 2 * window_gap_width,
                                     ),
                                     (xcb::CONFIG_WINDOW_BORDER_WIDTH as u16, window_border_width),
                                 ],
@@ -161,6 +169,12 @@ fn main() {
                         }
                         LayoutMode::Stacking => {}
                     }
+
+                    xcb::change_window_attributes(
+                        &conn,
+                        client.id(),
+                        &[(xcb::CW_BORDER_PIXEL, window_border_color)],
+                    );
 
                     xcb::map_window(&conn, client.id());
 
