@@ -5,6 +5,9 @@
 super + alt + Return
     xterm
 
+super + alt + e
+    thunar
+
 #
 # ravenwm hotkeys
 #
