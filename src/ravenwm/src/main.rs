@@ -64,9 +64,6 @@ fn main() {
                     println!("Quit");
                     break 'ravenwm;
                 }
-                ipc::Message::Ping => {
-                    println!("Pong")
-                }
                 ipc::Message::CloseWindow => {
                     if let Some(currently_focused_client) = focused_client {
                         let is_icccm = false;

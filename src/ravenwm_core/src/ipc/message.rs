@@ -5,9 +5,6 @@ pub enum Message {
     /// Quit `ravenwm`.
     Quit,
 
-    /// Ping
-    Ping,
-
     /// Close the active window.
     CloseWindow,
 
