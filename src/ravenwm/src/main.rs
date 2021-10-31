@@ -80,14 +80,31 @@ async fn run() {
 
         let event_loop_event = select! {
             ipc_message = ipc_fut => {
+                println!("IPC message completed");
+
                 ipc_fut = Box::pin(ipc_server.accept().fuse());
 
                 ipc_message.map(Event::IpcMessage)
             },
             x_event = x_event_fut => {
+                println!("X event completed");
+
                 x_event_fut = Box::pin(poll_for_event(&conn).fuse());
 
                 x_event.map(Event::XEvent)
+            }
+            complete => {
+                println!("Both completed");
+
+                ipc_fut = Box::pin(ipc_server.accept().fuse());
+                x_event_fut = Box::pin(poll_for_event(&conn).fuse());
+
+                None
+            }
+            default => {
+                println!("NO events");
+
+                None
             }
         };
 
