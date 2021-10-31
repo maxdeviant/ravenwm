@@ -26,6 +26,8 @@ fn main() {
     let mut layout_mode = LayoutMode::Tiling;
     let mut clients: Vec<XClient> = Vec::new();
 
+    let mut window_border_width = 0u32;
+
     xcb::create_window(
         &conn,
         xcb::COPY_FROM_PARENT as u8,
@@ -119,6 +121,37 @@ fn main() {
                         );
                     }
                 }
+                ipc::Message::SetBorderWidth { width } => {
+                    window_border_width = width;
+
+                    for client in &clients {
+                        let window_geometry =
+                            xcb::get_geometry(&conn, client.id()).get_reply().unwrap();
+
+                        let current_border_width = window_geometry.border_width();
+
+                        let border_width_delta =
+                            window_border_width as i32 - current_border_width as i32;
+
+                        xcb::configure_window(
+                            &conn,
+                            client.id(),
+                            &[
+                                (xcb::CONFIG_WINDOW_BORDER_WIDTH as u16, window_border_width),
+                                (
+                                    xcb::CONFIG_WINDOW_WIDTH as u16,
+                                    (window_geometry.width() as i32 - 2 * border_width_delta)
+                                        as u32,
+                                ),
+                                (
+                                    xcb::CONFIG_WINDOW_HEIGHT as u16,
+                                    (window_geometry.height() as i32 - 2 * border_width_delta)
+                                        as u32,
+                                ),
+                            ],
+                        );
+                    }
+                }
             }
         }
 
@@ -137,8 +170,7 @@ fn main() {
                         id: map_request.window(),
                     };
 
-                    let window_gap_width = 16 as u32;
-                    let window_border_width = 8 as u32;
+                    let window_gap_width = 16u32;
 
                     let (r, g, b) = (255, 0, 255);
                     let window_border_color = (0xFF << 24) | (r << 16 | g << 8 | b);

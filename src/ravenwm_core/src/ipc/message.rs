@@ -12,4 +12,8 @@ pub enum Message {
         x: u32,
         y: u32,
     },
+
+    SetBorderWidth {
+        width: u32,
+    },
 }

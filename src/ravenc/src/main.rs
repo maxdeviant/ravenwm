@@ -14,6 +14,7 @@ enum Command {
     Quit,
     MoveWindow { x: u32, y: u32 },
     CloseWindow,
+    BorderWidth { width_in_px: u32 },
 }
 
 #[paw::main]
@@ -30,6 +31,9 @@ fn main(args: Args) {
         }
         Command::CloseWindow => {
             ipc_client.send(&ipc::Message::CloseWindow);
+        }
+        Command::BorderWidth { width_in_px } => {
+            ipc_client.send(&ipc::Message::SetBorderWidth { width: width_in_px })
         }
     }
 }
