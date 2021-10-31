@@ -79,14 +79,8 @@ fn main() {
         descriptors.insert(ipc_fd);
         descriptors.insert(xcb_fd);
 
-        let ready_fds = select(
-            descriptors.highest(),
-            Some(&mut descriptors),
-            None,
-            None,
-            None,
-        )
-        .expect("Failed to read file descriptors");
+        let ready_fds = select(None, Some(&mut descriptors), None, None, None)
+            .expect("Failed to read file descriptors");
 
         if dbg!(ready_fds) > 0 {
             if dbg!(descriptors.contains(ipc_fd)) {
