@@ -1,9 +1,10 @@
 mod geometry;
+mod plumage;
 
 use ravenwm_core::ipc;
 use xcb;
 
-use crate::geometry::Rectangle;
+use crate::{geometry::Rectangle, plumage::Color};
 
 /// The event mask for the root window.
 const ROOT_EVENT_MASK: u32 = xcb::EVENT_MASK_SUBSTRUCTURE_REDIRECT
@@ -184,9 +185,6 @@ fn main() {
 
                     let window_gap_width = 16u32;
 
-                    let (r, g, b) = (255, 0, 255);
-                    let window_border_color = (0xFF << 24) | (r << 16 | g << 8 | b);
-
                     let mut window_dimensions =
                         Rectangle::new(0, 0, screen.width_in_pixels(), screen.height_in_pixels());
 
@@ -221,7 +219,7 @@ fn main() {
                     xcb::change_window_attributes(
                         &conn,
                         client.id(),
-                        &[(xcb::CW_BORDER_PIXEL, window_border_color)],
+                        &[(xcb::CW_BORDER_PIXEL, Color::MIDNIGHT_BLUE.into())],
                     );
 
                     xcb::map_window(&conn, client.id());
