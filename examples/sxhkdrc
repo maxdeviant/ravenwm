@@ -2,8 +2,12 @@
 # WM independent hotkeys
 #
 
-super + Return
-    alacritty
-
-super + shift + Return
+super + alt + Return
     xterm
+
+#
+# ravenwm hotkeys
+#
+
+super + alt + w
+    ./target/release/ravenc close_window

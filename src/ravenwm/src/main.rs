@@ -23,6 +23,7 @@ fn main() {
 
     let meta_window = conn.generate_id();
 
+    let mut layout_mode = LayoutMode::Tiling;
     let mut clients: Vec<XClient> = Vec::new();
 
     xcb::create_window(
@@ -72,7 +73,7 @@ fn main() {
     let test_window = create_test_window();
     let test_window_2 = create_test_window();
 
-    let mut focused_window = Some(test_window);
+    let mut focused_client = Some(test_window);
 
     let title = "Basic Window";
     xcb::change_property(
@@ -110,39 +111,41 @@ fn main() {
                     println!("Pong")
                 }
                 ipc::Message::CloseWindow => {
-                    let is_icccm = false;
-                    if is_icccm {
-                        let wm_protocols = dbg!(wm_protocols);
-                        let wm_delete_window = dbg!(wm_delete_window);
+                    if let Some(focused_client) = focused_client {
+                        let is_icccm = false;
+                        if is_icccm {
+                            let wm_protocols = dbg!(wm_protocols);
+                            let wm_delete_window = dbg!(wm_delete_window);
 
-                        let event = xcb::ClientMessageEvent::new(
-                            32,
-                            test_window,
-                            wm_protocols,
-                            xcb::ClientMessageData::from_data32([
-                                wm_delete_window,
-                                xcb::CURRENT_TIME,
-                                0,
-                                0,
-                                0,
-                            ]),
-                        );
+                            let event = xcb::ClientMessageEvent::new(
+                                32,
+                                focused_client,
+                                wm_protocols,
+                                xcb::ClientMessageData::from_data32([
+                                    wm_delete_window,
+                                    xcb::CURRENT_TIME,
+                                    0,
+                                    0,
+                                    0,
+                                ]),
+                            );
 
-                        println!("Sending WM_DELETE_WINDOW event");
-                        xcb::send_event(
-                            &conn,
-                            false,
-                            test_window,
-                            xcb::EVENT_MASK_NO_EVENT,
-                            &event,
-                        );
-                    } else {
-                        println!("Killing client: {}", test_window);
-                        xcb::kill_client(&conn, test_window);
+                            println!("Sending WM_DELETE_WINDOW event");
+                            xcb::send_event(
+                                &conn,
+                                false,
+                                focused_client,
+                                xcb::EVENT_MASK_NO_EVENT,
+                                &event,
+                            );
+                        } else {
+                            println!("Killing client: {}", focused_client);
+                            xcb::kill_client(&conn, focused_client);
+                        }
                     }
                 }
                 ipc::Message::MoveWindow { x, y } => {
-                    if let Some(focused_window) = focused_window {
+                    if let Some(focused_window) = focused_client {
                         xcb::configure_window(
                             &conn,
                             focused_window,
@@ -171,9 +174,33 @@ fn main() {
                         id: map_request.window(),
                     };
 
-                    clients.push(client);
+                    match layout_mode {
+                        LayoutMode::Tiling => {
+                            xcb::configure_window(
+                                &conn,
+                                client.id(),
+                                &[
+                                    (xcb::CONFIG_WINDOW_X as u16, 0),
+                                    (xcb::CONFIG_WINDOW_Y as u16, 0),
+                                    (
+                                        xcb::CONFIG_WINDOW_WIDTH as u16,
+                                        screen.width_in_pixels() as u32,
+                                    ),
+                                    (
+                                        xcb::CONFIG_WINDOW_HEIGHT as u16,
+                                        screen.width_in_pixels() as u32,
+                                    ),
+                                ],
+                            );
+                        }
+                        LayoutMode::Stacking => {}
+                    }
 
-                    xcb::map_window(&conn, map_request.window());
+                    xcb::map_window(&conn, client.id());
+
+                    focused_client = Some(client.id());
+
+                    clients.push(client);
                 }
                 xcb::CONFIGURE_REQUEST => {
                     println!("XCB_CONFIGURE_REQUEST");
@@ -299,7 +326,7 @@ fn main() {
 
                         if child_window != xcb::NONE {
                             println!("Focusing window: {}", child_window);
-                            focused_window = Some(child_window);
+                            focused_client = Some(child_window);
                         }
                     }
                 }
@@ -319,8 +346,20 @@ fn main() {
     conn.flush();
 }
 
+#[derive(Debug)]
+enum LayoutMode {
+    Tiling,
+    Stacking,
+}
+
 /// An X client.
 #[derive(Debug)]
 struct XClient {
     id: xcb::Window,
+}
+
+impl XClient {
+    pub fn id(&self) -> xcb::Window {
+        self.id
+    }
 }
