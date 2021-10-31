@@ -102,43 +102,4 @@ impl Server {
             }
         }
     }
-
-    pub fn incoming(&self) -> IncomingMessages<'_> {
-        IncomingMessages {
-            listener: &self.listener,
-        }
-    }
-}
-
-pub struct IncomingMessages<'a> {
-    listener: &'a UnixListener,
-}
-
-impl<'a> Iterator for IncomingMessages<'a> {
-    type Item = Message;
-
-    fn next(&mut self) -> Option<Message> {
-        let stream = self.listener.into_iter().next()?;
-        match stream {
-            Ok(mut stream) => {
-                let mut buffer = Vec::new();
-                stream
-                    .read_to_end(&mut buffer)
-                    .expect("Failed to read message");
-
-                let message: Message =
-                    bincode::deserialize(&buffer).expect("Failed to deserialize message");
-
-                Some(message)
-            }
-            Err(err) => {
-                println!("{}", err);
-                None
-            }
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.listener.into_iter().size_hint()
-    }
 }
