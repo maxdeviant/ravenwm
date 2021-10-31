@@ -151,7 +151,7 @@ fn main() {
                                     ),
                                     (
                                         xcb::CONFIG_WINDOW_HEIGHT as u16,
-                                        screen.width_in_pixels() as u32,
+                                        screen.height_in_pixels() as u32,
                                     ),
                                 ],
                             );
