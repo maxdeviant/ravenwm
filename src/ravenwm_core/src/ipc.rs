@@ -3,6 +3,7 @@ mod message;
 use std::fs;
 use std::io::{self, ErrorKind, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::prelude::{AsRawFd, RawFd};
 use std::path::PathBuf;
 
 pub use message::*;
@@ -74,8 +75,6 @@ impl Server {
         let listener = UnixListener::bind(&socket_path.0)
             .expect(&format!("Failed to connect to {}", socket_path.0));
 
-        listener.set_nonblocking(true).unwrap();
-
         Self { listener }
     }
 
@@ -93,13 +92,15 @@ impl Server {
                 Some(message)
             }
             Err(err) => {
-                if err.kind() == ErrorKind::WouldBlock {
-                    return None;
-                }
-
                 println!("Socket error: {}", err);
                 None
             }
         }
+    }
+}
+
+impl AsRawFd for Server {
+    fn as_raw_fd(&self) -> RawFd {
+        self.listener.as_raw_fd()
     }
 }

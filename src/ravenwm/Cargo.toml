@@ -6,5 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+nix = "0.23"
 ravenwm_core = { path = "../ravenwm_core" }
 xcb = "0.10"
