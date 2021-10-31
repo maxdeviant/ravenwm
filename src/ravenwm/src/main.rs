@@ -137,6 +137,8 @@ fn main() {
                         id: map_request.window(),
                     };
 
+                    let window_border_width = 4 as u32;
+
                     match layout_mode {
                         LayoutMode::Tiling => {
                             xcb::configure_window(
@@ -147,12 +149,13 @@ fn main() {
                                     (xcb::CONFIG_WINDOW_Y as u16, 0),
                                     (
                                         xcb::CONFIG_WINDOW_WIDTH as u16,
-                                        screen.width_in_pixels() as u32,
+                                        screen.width_in_pixels() as u32 - 2 * window_border_width,
                                     ),
                                     (
                                         xcb::CONFIG_WINDOW_HEIGHT as u16,
-                                        screen.height_in_pixels() as u32,
+                                        screen.height_in_pixels() as u32 - 2 * window_border_width,
                                     ),
+                                    (xcb::CONFIG_WINDOW_BORDER_WIDTH as u16, window_border_width),
                                 ],
                             );
                         }
