@@ -41,50 +41,7 @@ fn main() {
         &[],
     );
 
-    let create_test_window = || {
-        let test_window = conn.generate_id();
-
-        xcb::create_window(
-            &conn,
-            xcb::COPY_FROM_PARENT as u8,
-            test_window,
-            screen.root(),
-            0,
-            0,
-            150,
-            150,
-            10,
-            xcb::WINDOW_CLASS_INPUT_OUTPUT as u16,
-            screen.root_visual(),
-            &[
-                (xcb::CW_BACK_PIXEL, screen.white_pixel()),
-                (
-                    xcb::CW_EVENT_MASK,
-                    xcb::EVENT_MASK_EXPOSURE | xcb::EVENT_MASK_KEY_PRESS,
-                ),
-            ],
-        );
-
-        xcb::map_window(&conn, test_window);
-
-        test_window
-    };
-
-    let test_window = create_test_window();
-    let test_window_2 = create_test_window();
-
-    let mut focused_client = Some(test_window);
-
-    let title = "Basic Window";
-    xcb::change_property(
-        &conn,
-        xcb::PROP_MODE_REPLACE as u8,
-        test_window,
-        xcb::ATOM_WM_NAME,
-        xcb::ATOM_STRING,
-        8,
-        title.as_bytes(),
-    );
+    let mut focused_client = None;
 
     let (wm_protocols, wm_delete_window) = {
         let wm_protocols_cookie = xcb::intern_atom(&conn, false, "WM_PROTOCOLS");
@@ -275,45 +232,6 @@ fn main() {
                     let _motion_notify: &xcb::MotionNotifyEvent =
                         unsafe { xcb::cast_event(&event) };
                 }
-                xcb::KEY_PRESS => {
-                    let key_press: &xcb::KeyPressEvent = unsafe { xcb::cast_event(&event) };
-
-                    println!("Key '{}' pressed", key_press.detail());
-
-                    // Q
-                    if key_press.detail() == 0x18 {
-                        let is_icccm = false;
-                        if is_icccm {
-                            let wm_protocols = dbg!(wm_protocols);
-                            let wm_delete_window = dbg!(wm_delete_window);
-
-                            let event = xcb::ClientMessageEvent::new(
-                                32,
-                                test_window,
-                                wm_protocols,
-                                xcb::ClientMessageData::from_data32([
-                                    wm_delete_window,
-                                    xcb::CURRENT_TIME,
-                                    0,
-                                    0,
-                                    0,
-                                ]),
-                            );
-
-                            println!("Sending WM_DELETE_WINDOW event");
-                            xcb::send_event(
-                                &conn,
-                                false,
-                                test_window,
-                                xcb::EVENT_MASK_NO_EVENT,
-                                &event,
-                            );
-                        } else {
-                            println!("Killing client: {}", test_window);
-                            xcb::kill_client(&conn, test_window);
-                        }
-                    }
-                }
                 xcb::BUTTON_PRESS => {
                     let button_press: &xcb::ButtonPressEvent = unsafe { xcb::cast_event(&event) };
 
@@ -339,8 +257,6 @@ fn main() {
         xcb::destroy_window(&conn, client.id);
     }
 
-    xcb::destroy_window(&conn, test_window);
-    xcb::destroy_window(&conn, test_window_2);
     xcb::destroy_window(&conn, meta_window);
 
     conn.flush();
