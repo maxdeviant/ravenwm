@@ -6,6 +6,7 @@ stdenv.mkDerivation {
   buildInputs = [
     stdenv
     pkg-config
+    openssl
     libX11
   ];
 }

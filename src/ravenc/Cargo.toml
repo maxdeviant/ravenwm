@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-std = "1.10"
 paw = "1.0"
 hex_color = "1.0"
 ravenwm_core = { path = "../ravenwm_core" }

@@ -1,8 +1,9 @@
 mod message;
 
+use async_std::io::{ReadExt, WriteExt};
+use async_std::os::unix::net::{UnixListener, UnixStream};
 use std::fs;
-use std::io::{self, ErrorKind, Read, Write};
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::io::{self, ErrorKind};
 use std::path::PathBuf;
 
 pub use message::*;
@@ -45,18 +46,20 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn connect(socket_path: &SocketPath) -> Self {
+    pub async fn connect(socket_path: &SocketPath) -> Self {
         let socket = UnixStream::connect(&socket_path.0)
+            .await
             .expect(&format!("Failed to connect to {}", socket_path.0));
 
         Self { socket }
     }
 
-    pub fn send(&mut self, message: &Message) {
+    pub async fn send(&mut self, message: &Message) {
         let buffer = bincode::serialize(message).expect("Failed to serialize message");
 
         self.socket
             .write_all(&buffer)
+            .await
             .expect("Failed to send message");
     }
 }
@@ -66,25 +69,25 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn bind(socket_path: &SocketPath) -> Self {
+    pub async fn bind(socket_path: &SocketPath) -> Self {
         socket_path
             .delete_if_exists()
             .expect("Failed to delete socket");
 
         let listener = UnixListener::bind(&socket_path.0)
+            .await
             .expect(&format!("Failed to connect to {}", socket_path.0));
-
-        listener.set_nonblocking(true).unwrap();
 
         Self { listener }
     }
 
-    pub fn accept(&self) -> Option<Message> {
-        match self.listener.accept() {
+    pub async fn accept(&self) -> Option<Message> {
+        match self.listener.accept().await {
             Ok((mut socket, _)) => {
                 let mut buffer = Vec::new();
                 socket
                     .read_to_end(&mut buffer)
+                    .await
                     .expect("Failed to read message");
 
                 let message: Message =
