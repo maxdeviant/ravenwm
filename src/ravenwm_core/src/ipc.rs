@@ -3,6 +3,7 @@ mod message;
 use std::fs;
 use std::io::{self, ErrorKind, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::PathBuf;
 
 pub use message::*;
 
@@ -11,7 +12,16 @@ pub struct SocketPath(String);
 
 impl SocketPath {
     pub fn new() -> Self {
-        let socket_path = std::env::var("RAVENWM_SOCKET").expect("Failed to read RAVENWM_SOCKET");
+        let socket_path = std::env::var("RAVENWM_SOCKET").unwrap_or_else(|_| {
+            let xdg_runtime_dir =
+                std::env::var("XDG_RUNTIME_DIR").expect("Failed to get XDG_RUNTIME_DIR");
+
+            PathBuf::from(xdg_runtime_dir)
+                .join("ravenwm.sock")
+                .to_str()
+                .expect("Invalid socket path")
+                .to_string()
+        });
 
         Self(socket_path)
     }
