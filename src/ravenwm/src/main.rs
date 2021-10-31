@@ -72,12 +72,23 @@ async fn run() {
         )
     };
 
+    let mut ipc_fut = Box::pin(ipc_server.accept().fuse());
+    let mut x_event_fut = Box::pin(poll_for_event(&conn).fuse());
+
     'ravenwm: loop {
         conn.flush();
 
         let event_loop_event = select! {
-            ipc_message = ipc_server.accept().fuse() => ipc_message.map(Event::IpcMessage),
-            x_event = poll_for_event(&conn).fuse() => x_event.map(Event::XEvent)
+            ipc_message = ipc_fut => {
+                ipc_fut = Box::pin(ipc_server.accept().fuse());
+
+                ipc_message.map(Event::IpcMessage)
+            },
+            x_event = x_event_fut => {
+                x_event_fut = Box::pin(poll_for_event(&conn).fuse());
+
+                x_event.map(Event::XEvent)
+            }
         };
 
         match event_loop_event {
@@ -375,7 +386,7 @@ async fn run() {
 }
 
 async fn poll_for_event(conn: &xcb::Connection) -> Option<xcb::GenericEvent> {
-    conn.poll_for_event()
+    conn.wait_for_event()
 }
 
 #[derive(Debug)]
