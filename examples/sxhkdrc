@@ -1,0 +1,9 @@
+#
+# WM independent hotkeys
+#
+
+super + Return
+    alacritty
+
+super + shift + Return
+    xterm

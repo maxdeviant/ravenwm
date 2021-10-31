@@ -23,6 +23,8 @@ fn main() {
 
     let meta_window = conn.generate_id();
 
+    let mut clients: Vec<XClient> = Vec::new();
+
     xcb::create_window(
         &conn,
         xcb::COPY_FROM_PARENT as u8,
@@ -165,6 +167,12 @@ fn main() {
 
                     let map_request: &xcb::MapRequestEvent = unsafe { xcb::cast_event(&event) };
 
+                    let client = XClient {
+                        id: map_request.window(),
+                    };
+
+                    clients.push(client);
+
                     xcb::map_window(&conn, map_request.window());
                 }
                 xcb::CONFIGURE_REQUEST => {
@@ -300,9 +308,19 @@ fn main() {
         }
     }
 
+    for client in clients {
+        xcb::destroy_window(&conn, client.id);
+    }
+
     xcb::destroy_window(&conn, test_window);
     xcb::destroy_window(&conn, test_window_2);
     xcb::destroy_window(&conn, meta_window);
 
     conn.flush();
+}
+
+/// An X client.
+#[derive(Debug)]
+struct XClient {
+    id: xcb::Window,
 }
