@@ -67,9 +67,6 @@ fn main() {
     let ipc_fd = ipc_server.as_raw_fd();
     let xcb_fd = conn.as_raw_fd();
 
-    let ipc_fd = dbg!(ipc_fd);
-    let xcb_fd = dbg!(xcb_fd);
-
     let mut descriptors = FdSet::new();
 
     'ravenwm: loop {
@@ -82,8 +79,8 @@ fn main() {
         let ready_fds = select(None, Some(&mut descriptors), None, None, None)
             .expect("Failed to read file descriptors");
 
-        if dbg!(ready_fds) > 0 {
-            if dbg!(descriptors.contains(ipc_fd)) {
+        if ready_fds > 0 {
+            if descriptors.contains(ipc_fd) {
                 if let Some(message) = ipc_server.accept() {
                     println!("Message: {:?}", message);
 
@@ -204,7 +201,7 @@ fn main() {
                 }
             }
 
-            if dbg!(descriptors.contains(xcb_fd)) {
+            if descriptors.contains(xcb_fd) {
                 while let Some(event) = conn.poll_for_event() {
                     let response_type = event.response_type();
 
