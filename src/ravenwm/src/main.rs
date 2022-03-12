@@ -265,64 +265,59 @@ fn main() -> xcb::Result<()> {
 
                             let mut values = Vec::with_capacity(7);
 
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_X as u16) == 0 {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_X as u16,
-                                    configure_request.x() as u32,
-                                ));
-                            }
-
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_Y as u16) == 0 {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_Y as u16,
-                                    configure_request.y() as u32,
-                                ));
-                            }
-
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_WIDTH as u16)
-                                == 0
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::X)
                             {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_WIDTH as u16,
-                                    configure_request.width() as u32,
+                                values.push(x::ConfigWindow::X(configure_request.x() as i32));
+                            }
+
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::Y)
+                            {
+                                values.push(x::ConfigWindow::Y(configure_request.y() as i32));
+                            }
+
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::WIDTH)
+                            {
+                                values
+                                    .push(x::ConfigWindow::Width(configure_request.width() as u32));
+                            }
+
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::HEIGHT)
+                            {
+                                values.push(x::ConfigWindow::Height(
+                                    configure_request.height() as u32
                                 ));
                             }
 
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_HEIGHT as u16)
-                                == 0
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::BORDER_WIDTH)
                             {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_HEIGHT as u16,
-                                    configure_request.height() as u32,
-                                ));
-                            }
-
-                            if configure_request.value_mask()
-                                & (xcb::CONFIG_WINDOW_BORDER_WIDTH as u16)
-                                == 0
-                            {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_BORDER_WIDTH as u16,
+                                values.push(x::ConfigWindow::BorderWidth(
                                     configure_request.border_width() as u32,
                                 ));
                             }
 
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_SIBLING as u16)
-                                == 0
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::SIBLING)
                             {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_SIBLING as u16,
-                                    configure_request.sibling(),
-                                ));
+                                values.push(x::ConfigWindow::Sibling(configure_request.sibling()));
                             }
 
-                            if configure_request.value_mask()
-                                & (xcb::CONFIG_WINDOW_STACK_MODE as u16)
-                                == 0
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::STACK_MODE)
                             {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_STACK_MODE as u16,
-                                    configure_request.stack_mode() as u32,
+                                values.push(x::ConfigWindow::StackMode(
+                                    configure_request.stack_mode(),
                                 ));
                             }
 
