@@ -127,12 +127,12 @@ fn main() -> xcb::Result<()> {
 
                                 if let Some(currently_focused_index) = clients
                                     .iter()
-                                    .position(|client| client.id() == currently_focused_client)
+                                    .position(|client| client.window() == currently_focused_client)
                                 {
                                     clients.remove(currently_focused_index);
                                 }
 
-                                focused_client = clients.last().map(|client| client.id());
+                                focused_client = clients.last().map(|client| client.window());
                             }
                         }
                         ipc::Message::MoveWindow { x, y } => {
@@ -152,7 +152,7 @@ fn main() -> xcb::Result<()> {
                             for client in &clients {
                                 let window_geometry = {
                                     let cookie = conn.send_request(&x::GetGeometry {
-                                        drawable: x::Drawable::Window(client.id()),
+                                        drawable: x::Drawable::Window(client.window()),
                                     });
 
                                     conn.wait_for_reply(cookie)?
@@ -174,7 +174,7 @@ fn main() -> xcb::Result<()> {
                                 window_dimensions.height -= 2 * border_width_delta as u16;
 
                                 conn.send_request(&x::ConfigureWindow {
-                                    window: client.id(),
+                                    window: client.window(),
                                     value_list: &[
                                         x::ConfigWindow::BorderWidth(window_border_width),
                                         x::ConfigWindow::Width(window_dimensions.width as u32),
@@ -188,7 +188,7 @@ fn main() -> xcb::Result<()> {
 
                             for client in &clients {
                                 conn.send_request(&x::ChangeWindowAttributes {
-                                    window: client.id(),
+                                    window: client.window(),
                                     value_list: &[x::Cw::BorderPixel(window_border_color.into())],
                                 });
                             }
@@ -206,7 +206,7 @@ fn main() -> xcb::Result<()> {
                             println!("XCB_MAP_REQUEST");
 
                             let client = XClient {
-                                id: map_request.window(),
+                                window: map_request.window(),
                             };
 
                             let window_gap_width = 16u32;
@@ -227,7 +227,7 @@ fn main() -> xcb::Result<()> {
                             match layout_mode {
                                 LayoutMode::Tiling => {
                                     conn.send_request(&x::ConfigureWindow {
-                                        window: client.id(),
+                                        window: client.window(),
                                         value_list: &[
                                             x::ConfigWindow::X(window_dimensions.x as i32),
                                             x::ConfigWindow::Y(window_dimensions.y as i32),
@@ -243,15 +243,15 @@ fn main() -> xcb::Result<()> {
                             }
 
                             conn.send_request(&x::ChangeWindowAttributes {
-                                window: client.id(),
+                                window: client.window(),
                                 value_list: &[x::Cw::BorderPixel(window_border_color.into())],
                             });
 
                             conn.send_request(&x::MapWindow {
-                                window: client.id(),
+                                window: client.window(),
                             });
 
-                            focused_client = Some(client.id());
+                            focused_client = Some(client.window());
 
                             clients.push(client);
                         }
@@ -355,7 +355,9 @@ fn main() -> xcb::Result<()> {
     }
 
     for client in clients {
-        conn.send_request(&x::DestroyWindow { window: client.id });
+        conn.send_request(&x::DestroyWindow {
+            window: client.window(),
+        });
     }
 
     conn.send_request(&x::DestroyWindow {
@@ -376,11 +378,11 @@ enum LayoutMode {
 /// An X client.
 #[derive(Debug)]
 struct XClient {
-    id: x::Window,
+    window: x::Window,
 }
 
 impl XClient {
-    pub fn id(&self) -> x::Window {
-        self.id
+    pub fn window(&self) -> x::Window {
+        self.window
     }
 }
