@@ -203,17 +203,12 @@ fn main() -> xcb::Result<()> {
             }
 
             if descriptors.contains(xcb_fd) {
-                while let Some(event) = conn.poll_for_event()? {
-                    let response_type = event.response_type();
+                while let Some(xcb::Event::X(event)) = conn.poll_for_event()? {
+                    println!("Received event {:?}", event);
 
-                    println!("Received event {}", response_type);
-
-                    match response_type {
-                        xcb::MAP_REQUEST => {
+                    match event {
+                        x::Event::MapRequest(map_request) => {
                             println!("XCB_MAP_REQUEST");
-
-                            let map_request: &xcb::MapRequestEvent =
-                                unsafe { xcb::cast_event(&event) };
 
                             let client = XClient {
                                 id: map_request.window(),
@@ -236,53 +231,37 @@ fn main() -> xcb::Result<()> {
 
                             match layout_mode {
                                 LayoutMode::Tiling => {
-                                    xcb::configure_window(
-                                        &conn,
-                                        client.id(),
-                                        &[
-                                            (
-                                                xcb::CONFIG_WINDOW_X as u16,
-                                                window_dimensions.x as u32,
-                                            ),
-                                            (
-                                                xcb::CONFIG_WINDOW_Y as u16,
-                                                window_dimensions.y as u32,
-                                            ),
-                                            (
-                                                xcb::CONFIG_WINDOW_WIDTH as u16,
-                                                window_dimensions.width as u32,
-                                            ),
-                                            (
-                                                xcb::CONFIG_WINDOW_HEIGHT as u16,
+                                    conn.send_request(&x::ConfigureWindow {
+                                        window: client.id(),
+                                        value_list: &[
+                                            x::ConfigWindow::X(window_dimensions.x as i32),
+                                            x::ConfigWindow::Y(window_dimensions.y as i32),
+                                            x::ConfigWindow::Width(window_dimensions.width as u32),
+                                            x::ConfigWindow::Height(
                                                 window_dimensions.height as u32,
                                             ),
-                                            (
-                                                xcb::CONFIG_WINDOW_BORDER_WIDTH as u16,
-                                                window_border_width,
-                                            ),
+                                            x::ConfigWindow::BorderWidth(window_border_width),
                                         ],
-                                    );
+                                    });
                                 }
                                 LayoutMode::Stacking => {}
                             }
 
-                            xcb::change_window_attributes(
-                                &conn,
-                                client.id(),
-                                &[(xcb::CW_BORDER_PIXEL, window_border_color.into())],
-                            );
+                            conn.send_request(&x::ChangeWindowAttributes {
+                                window: client.id(),
+                                value_list: &[x::Cw::BorderPixel(window_border_color.into())],
+                            });
 
-                            xcb::map_window(&conn, client.id());
+                            conn.send_request(&x::MapWindow {
+                                window: client.id(),
+                            });
 
                             focused_client = Some(client.id());
 
                             clients.push(client);
                         }
-                        xcb::CONFIGURE_REQUEST => {
+                        x::Event::ConfigureRequest(configure_request) => {
                             println!("XCB_CONFIGURE_REQUEST");
-
-                            let configure_request: &xcb::ConfigureRequestEvent =
-                                unsafe { xcb::cast_event(&event) };
 
                             let mut values = Vec::with_capacity(7);
 
@@ -349,40 +328,31 @@ fn main() -> xcb::Result<()> {
 
                             let values = dbg!(values);
 
-                            xcb::configure_window(
-                                &conn,
-                                configure_request.window(),
-                                values.as_slice(),
-                            );
+                            conn.send_request(&x::ConfigureWindow {
+                                window: configure_request.window(),
+                                value_list: values.as_slice(),
+                            });
 
-                            xcb::change_window_attributes(
-                                &conn,
-                                configure_request.window(),
-                                &[(
-                                    xcb::CW_EVENT_MASK,
-                                    xcb::EVENT_MASK_PROPERTY_CHANGE | xcb::EVENT_MASK_FOCUS_CHANGE,
+                            conn.send_request(&x::ChangeWindowAttributes {
+                                window: configure_request.window(),
+                                value_list: &[x::Cw::EventMask(
+                                    x::EventMask::PROPERTY_CHANGE.union(x::EventMask::FOCUS_CHANGE),
                                 )],
-                            );
+                            });
                         }
-                        xcb::MOTION_NOTIFY => {
+                        x::Event::MotionNotify(motion_notify) => {
                             println!("XCB_MOTION_NOTIFY");
-
-                            let _motion_notify: &xcb::MotionNotifyEvent =
-                                unsafe { xcb::cast_event(&event) };
                         }
-                        xcb::BUTTON_PRESS => {
-                            let button_press: &xcb::ButtonPressEvent =
-                                unsafe { xcb::cast_event(&event) };
-
+                        x::Event::ButtonPress(button_press) => {
                             println!("Mouse button '{}' pressed", button_press.detail());
 
                             if button_press.detail() == 0x1 {
                                 let child_window = button_press.child();
 
-                                println!("Child window: {}", child_window);
+                                println!("Child window: {:?}", child_window);
 
-                                if child_window != xcb::NONE {
-                                    println!("Focusing window: {}", child_window);
+                                if !child_window.is_none() {
+                                    println!("Focusing window: {:?}", child_window);
                                     focused_client = Some(child_window);
                                 }
                             }
