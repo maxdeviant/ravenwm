@@ -1,4 +1,4 @@
-with import <nixpkgs> {}; with xlibs;
+with import <nixpkgs> {}; with xorg;
 
 stdenv.mkDerivation {
   name = "ravenwm";
