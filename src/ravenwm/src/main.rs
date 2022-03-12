@@ -5,17 +5,17 @@ use std::os::unix::prelude::AsRawFd;
 
 use nix::sys::select::{select, FdSet};
 use ravenwm_core::ipc;
-use xcb;
+use xcb::{self, x, Xid};
 
 use crate::{geometry::Rectangle, plumage::Color};
 
 /// The event mask for the root window.
-const ROOT_EVENT_MASK: u32 = xcb::EVENT_MASK_SUBSTRUCTURE_REDIRECT
-    | xcb::EVENT_MASK_SUBSTRUCTURE_NOTIFY
-    | xcb::EVENT_MASK_STRUCTURE_NOTIFY
-    | xcb::EVENT_MASK_BUTTON_PRESS;
+const ROOT_EVENT_MASK: x::EventMask = x::EventMask::SUBSTRUCTURE_REDIRECT
+    .union(x::EventMask::SUBSTRUCTURE_NOTIFY)
+    .union(x::EventMask::STRUCTURE_NOTIFY)
+    .union(x::EventMask::BUTTON_PRESS);
 
-fn main() {
+fn main() -> xcb::Result<()> {
     let socket = ipc::SocketPath::new();
     let ipc_server = ipc::Server::bind(&socket);
 
@@ -23,28 +23,26 @@ fn main() {
     let setup = conn.get_setup();
     let screen = setup.roots().nth(preferred_screen as usize).unwrap();
 
-    xcb::change_window_attributes_checked(
-        &conn,
-        screen.root(),
-        &[(xcb::CW_EVENT_MASK, ROOT_EVENT_MASK)],
-    );
+    conn.send_request_checked(&x::ChangeWindowAttributes {
+        window: screen.root(),
+        value_list: &[x::Cw::EventMask(ROOT_EVENT_MASK)],
+    });
 
     let meta_window = conn.generate_id();
 
-    xcb::create_window(
-        &conn,
-        xcb::COPY_FROM_PARENT as u8,
-        meta_window,
-        screen.root(),
-        -1,
-        -1,
-        1,
-        1,
-        0,
-        xcb::WINDOW_CLASS_INPUT_ONLY as u16,
-        xcb::NONE,
-        &[],
-    );
+    conn.send_request(&x::CreateWindow {
+        depth: x::COPY_FROM_PARENT as u8,
+        wid: meta_window,
+        parent: screen.root(),
+        x: -1,
+        y: -1,
+        width: 1,
+        height: 1,
+        border_width: 0,
+        class: x::WindowClass::InputOnly,
+        visual: x::Window::none().resource_id(),
+        value_list: &[],
+    });
 
     let mut layout_mode = LayoutMode::Tiling;
     let mut clients: Vec<XClient> = Vec::new();
@@ -55,12 +53,18 @@ fn main() {
     let mut focused_client = None;
 
     let (wm_protocols, wm_delete_window) = {
-        let wm_protocols_cookie = xcb::intern_atom(&conn, false, "WM_PROTOCOLS");
-        let wm_delete_window_cookie = xcb::intern_atom(&conn, false, "WM_DELETE_WINDOW");
+        let wm_protocols_cookie = conn.send_request(&x::InternAtom {
+            only_if_exists: false,
+            name: b"WM_PROTOCOLS",
+        });
+        let wm_delete_window_cookie = conn.send_request(&x::InternAtom {
+            only_if_exists: false,
+            name: b"WM_DELETE_WINDOW",
+        });
 
         (
-            wm_protocols_cookie.get_reply().unwrap().atom(),
-            wm_delete_window_cookie.get_reply().unwrap().atom(),
+            conn.wait_for_reply(wm_protocols_cookie)?,
+            conn.wait_for_reply(wm_delete_window_cookie)?,
         )
     };
 
@@ -70,7 +74,7 @@ fn main() {
     let mut descriptors = FdSet::new();
 
     'ravenwm: loop {
-        conn.flush();
+        conn.flush()?;
 
         descriptors.clear();
         descriptors.insert(ipc_fd);
@@ -93,16 +97,12 @@ fn main() {
                             if let Some(currently_focused_client) = focused_client {
                                 let is_icccm = false;
                                 if is_icccm {
-                                    let wm_protocols = dbg!(wm_protocols);
-                                    let wm_delete_window = dbg!(wm_delete_window);
-
-                                    let event = xcb::ClientMessageEvent::new(
-                                        32,
+                                    let event = x::ClientMessageEvent::new(
                                         currently_focused_client,
-                                        wm_protocols,
-                                        xcb::ClientMessageData::from_data32([
-                                            wm_delete_window,
-                                            xcb::CURRENT_TIME,
+                                        wm_protocols.atom(),
+                                        x::ClientMessageData::Data32([
+                                            wm_delete_window.atom().resource_id(),
+                                            x::CURRENT_TIME,
                                             0,
                                             0,
                                             0,
@@ -110,16 +110,19 @@ fn main() {
                                     );
 
                                     println!("Sending WM_DELETE_WINDOW event");
-                                    xcb::send_event(
-                                        &conn,
-                                        false,
-                                        currently_focused_client,
-                                        xcb::EVENT_MASK_NO_EVENT,
-                                        &event,
-                                    );
+                                    conn.send_request(&x::SendEvent {
+                                        propagate: false,
+                                        destination: x::SendEventDest::Window(
+                                            currently_focused_client,
+                                        ),
+                                        event_mask: x::EventMask::NO_EVENT,
+                                        event: &event,
+                                    });
                                 } else {
-                                    println!("Killing client: {}", currently_focused_client);
-                                    xcb::kill_client(&conn, currently_focused_client);
+                                    println!("Killing client: {:?}", currently_focused_client);
+                                    conn.send_request(&x::KillClient {
+                                        resource: currently_focused_client.resource_id(),
+                                    });
                                 }
 
                                 if let Some(currently_focused_index) = clients
@@ -134,22 +137,26 @@ fn main() {
                         }
                         ipc::Message::MoveWindow { x, y } => {
                             if let Some(focused_window) = focused_client {
-                                xcb::configure_window(
-                                    &conn,
-                                    focused_window,
-                                    &[
-                                        (xcb::CONFIG_WINDOW_X as u16, x),
-                                        (xcb::CONFIG_WINDOW_Y as u16, y),
+                                conn.send_request(&x::ConfigureWindow {
+                                    window: focused_window,
+                                    value_list: &[
+                                        x::ConfigWindow::X(x as i32),
+                                        x::ConfigWindow::Y(y as i32),
                                     ],
-                                );
+                                });
                             }
                         }
                         ipc::Message::SetBorderWidth { width } => {
                             window_border_width = width;
 
                             for client in &clients {
-                                let window_geometry =
-                                    xcb::get_geometry(&conn, client.id()).get_reply().unwrap();
+                                let window_geometry = {
+                                    let cookie = conn.send_request(&x::GetGeometry {
+                                        drawable: x::Drawable::Window(client.id()),
+                                    });
+
+                                    conn.wait_for_reply(cookie)?
+                                };
 
                                 let current_border_width = window_geometry.border_width();
 
@@ -166,35 +173,24 @@ fn main() {
                                 window_dimensions.width -= 2 * border_width_delta as u16;
                                 window_dimensions.height -= 2 * border_width_delta as u16;
 
-                                xcb::configure_window(
-                                    &conn,
-                                    client.id(),
-                                    &[
-                                        (
-                                            xcb::CONFIG_WINDOW_BORDER_WIDTH as u16,
-                                            window_border_width,
-                                        ),
-                                        (
-                                            xcb::CONFIG_WINDOW_WIDTH as u16,
-                                            window_dimensions.width as u32,
-                                        ),
-                                        (
-                                            xcb::CONFIG_WINDOW_HEIGHT as u16,
-                                            window_dimensions.height as u32,
-                                        ),
+                                conn.send_request(&x::ConfigureWindow {
+                                    window: client.id(),
+                                    value_list: &[
+                                        x::ConfigWindow::BorderWidth(window_border_width),
+                                        x::ConfigWindow::Width(window_dimensions.width as u32),
+                                        x::ConfigWindow::Height(window_dimensions.height as u32),
                                     ],
-                                );
+                                });
                             }
                         }
                         ipc::Message::SetBorderColor { color } => {
                             window_border_color = Color::rgb(color.r, color.g, color.b);
 
                             for client in &clients {
-                                xcb::change_window_attributes(
-                                    &conn,
-                                    client.id(),
-                                    &[(xcb::CW_BORDER_PIXEL, window_border_color.into())],
-                                );
+                                conn.send_request(&x::ChangeWindowAttributes {
+                                    window: client.id(),
+                                    value_list: &[x::Cw::BorderPixel(window_border_color.into())],
+                                });
                             }
                         }
                     }
@@ -202,17 +198,12 @@ fn main() {
             }
 
             if descriptors.contains(xcb_fd) {
-                while let Some(event) = conn.poll_for_event() {
-                    let response_type = event.response_type();
+                while let Some(xcb::Event::X(event)) = conn.poll_for_event()? {
+                    println!("Received event {:?}", event);
 
-                    println!("Received event {}", response_type);
-
-                    match response_type {
-                        xcb::MAP_REQUEST => {
+                    match event {
+                        x::Event::MapRequest(map_request) => {
                             println!("XCB_MAP_REQUEST");
-
-                            let map_request: &xcb::MapRequestEvent =
-                                unsafe { xcb::cast_event(&event) };
 
                             let client = XClient {
                                 id: map_request.window(),
@@ -235,153 +226,123 @@ fn main() {
 
                             match layout_mode {
                                 LayoutMode::Tiling => {
-                                    xcb::configure_window(
-                                        &conn,
-                                        client.id(),
-                                        &[
-                                            (
-                                                xcb::CONFIG_WINDOW_X as u16,
-                                                window_dimensions.x as u32,
-                                            ),
-                                            (
-                                                xcb::CONFIG_WINDOW_Y as u16,
-                                                window_dimensions.y as u32,
-                                            ),
-                                            (
-                                                xcb::CONFIG_WINDOW_WIDTH as u16,
-                                                window_dimensions.width as u32,
-                                            ),
-                                            (
-                                                xcb::CONFIG_WINDOW_HEIGHT as u16,
+                                    conn.send_request(&x::ConfigureWindow {
+                                        window: client.id(),
+                                        value_list: &[
+                                            x::ConfigWindow::X(window_dimensions.x as i32),
+                                            x::ConfigWindow::Y(window_dimensions.y as i32),
+                                            x::ConfigWindow::Width(window_dimensions.width as u32),
+                                            x::ConfigWindow::Height(
                                                 window_dimensions.height as u32,
                                             ),
-                                            (
-                                                xcb::CONFIG_WINDOW_BORDER_WIDTH as u16,
-                                                window_border_width,
-                                            ),
+                                            x::ConfigWindow::BorderWidth(window_border_width),
                                         ],
-                                    );
+                                    });
                                 }
                                 LayoutMode::Stacking => {}
                             }
 
-                            xcb::change_window_attributes(
-                                &conn,
-                                client.id(),
-                                &[(xcb::CW_BORDER_PIXEL, window_border_color.into())],
-                            );
+                            conn.send_request(&x::ChangeWindowAttributes {
+                                window: client.id(),
+                                value_list: &[x::Cw::BorderPixel(window_border_color.into())],
+                            });
 
-                            xcb::map_window(&conn, client.id());
+                            conn.send_request(&x::MapWindow {
+                                window: client.id(),
+                            });
 
                             focused_client = Some(client.id());
 
                             clients.push(client);
                         }
-                        xcb::CONFIGURE_REQUEST => {
+                        x::Event::ConfigureRequest(configure_request) => {
                             println!("XCB_CONFIGURE_REQUEST");
-
-                            let configure_request: &xcb::ConfigureRequestEvent =
-                                unsafe { xcb::cast_event(&event) };
 
                             let mut values = Vec::with_capacity(7);
 
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_X as u16) == 0 {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_X as u16,
-                                    configure_request.x() as u32,
-                                ));
-                            }
-
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_Y as u16) == 0 {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_Y as u16,
-                                    configure_request.y() as u32,
-                                ));
-                            }
-
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_WIDTH as u16)
-                                == 0
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::X)
                             {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_WIDTH as u16,
-                                    configure_request.width() as u32,
+                                values.push(x::ConfigWindow::X(configure_request.x() as i32));
+                            }
+
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::Y)
+                            {
+                                values.push(x::ConfigWindow::Y(configure_request.y() as i32));
+                            }
+
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::WIDTH)
+                            {
+                                values
+                                    .push(x::ConfigWindow::Width(configure_request.width() as u32));
+                            }
+
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::HEIGHT)
+                            {
+                                values.push(x::ConfigWindow::Height(
+                                    configure_request.height() as u32
                                 ));
                             }
 
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_HEIGHT as u16)
-                                == 0
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::BORDER_WIDTH)
                             {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_HEIGHT as u16,
-                                    configure_request.height() as u32,
-                                ));
-                            }
-
-                            if configure_request.value_mask()
-                                & (xcb::CONFIG_WINDOW_BORDER_WIDTH as u16)
-                                == 0
-                            {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_BORDER_WIDTH as u16,
+                                values.push(x::ConfigWindow::BorderWidth(
                                     configure_request.border_width() as u32,
                                 ));
                             }
 
-                            if configure_request.value_mask() & (xcb::CONFIG_WINDOW_SIBLING as u16)
-                                == 0
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::SIBLING)
                             {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_SIBLING as u16,
-                                    configure_request.sibling(),
-                                ));
+                                values.push(x::ConfigWindow::Sibling(configure_request.sibling()));
                             }
 
-                            if configure_request.value_mask()
-                                & (xcb::CONFIG_WINDOW_STACK_MODE as u16)
-                                == 0
+                            if configure_request
+                                .value_mask()
+                                .contains(x::ConfigWindowMask::STACK_MODE)
                             {
-                                values.push((
-                                    xcb::CONFIG_WINDOW_STACK_MODE as u16,
-                                    configure_request.stack_mode() as u32,
+                                values.push(x::ConfigWindow::StackMode(
+                                    configure_request.stack_mode(),
                                 ));
                             }
 
                             let values = dbg!(values);
 
-                            xcb::configure_window(
-                                &conn,
-                                configure_request.window(),
-                                values.as_slice(),
-                            );
+                            conn.send_request(&x::ConfigureWindow {
+                                window: configure_request.window(),
+                                value_list: values.as_slice(),
+                            });
 
-                            xcb::change_window_attributes(
-                                &conn,
-                                configure_request.window(),
-                                &[(
-                                    xcb::CW_EVENT_MASK,
-                                    xcb::EVENT_MASK_PROPERTY_CHANGE | xcb::EVENT_MASK_FOCUS_CHANGE,
+                            conn.send_request(&x::ChangeWindowAttributes {
+                                window: configure_request.window(),
+                                value_list: &[x::Cw::EventMask(
+                                    x::EventMask::PROPERTY_CHANGE.union(x::EventMask::FOCUS_CHANGE),
                                 )],
-                            );
+                            });
                         }
-                        xcb::MOTION_NOTIFY => {
+                        x::Event::MotionNotify(motion_notify) => {
                             println!("XCB_MOTION_NOTIFY");
-
-                            let _motion_notify: &xcb::MotionNotifyEvent =
-                                unsafe { xcb::cast_event(&event) };
                         }
-                        xcb::BUTTON_PRESS => {
-                            let button_press: &xcb::ButtonPressEvent =
-                                unsafe { xcb::cast_event(&event) };
-
+                        x::Event::ButtonPress(button_press) => {
                             println!("Mouse button '{}' pressed", button_press.detail());
 
                             if button_press.detail() == 0x1 {
                                 let child_window = button_press.child();
 
-                                println!("Child window: {}", child_window);
+                                println!("Child window: {:?}", child_window);
 
-                                if child_window != xcb::NONE {
-                                    println!("Focusing window: {}", child_window);
+                                if !child_window.is_none() {
+                                    println!("Focusing window: {:?}", child_window);
                                     focused_client = Some(child_window);
                                 }
                             }
@@ -394,12 +355,16 @@ fn main() {
     }
 
     for client in clients {
-        xcb::destroy_window(&conn, client.id);
+        conn.send_request(&x::DestroyWindow { window: client.id });
     }
 
-    xcb::destroy_window(&conn, meta_window);
+    conn.send_request(&x::DestroyWindow {
+        window: meta_window,
+    });
 
-    conn.flush();
+    conn.flush()?;
+
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -411,11 +376,11 @@ enum LayoutMode {
 /// An X client.
 #[derive(Debug)]
 struct XClient {
-    id: xcb::Window,
+    id: x::Window,
 }
 
 impl XClient {
-    pub fn id(&self) -> xcb::Window {
+    pub fn id(&self) -> x::Window {
         self.id
     }
 }

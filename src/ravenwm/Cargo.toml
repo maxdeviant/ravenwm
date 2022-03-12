@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 nix = "0.23"
 ravenwm_core = { path = "../ravenwm_core" }
-xcb = "0.10"
+xcb = "1.0"
