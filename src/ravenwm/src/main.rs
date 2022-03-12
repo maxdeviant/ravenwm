@@ -40,9 +40,7 @@ fn main() -> xcb::Result<()> {
         height: 1,
         border_width: 0,
         class: x::WindowClass::InputOnly,
-        // TODO: Verify that the value for `visual` is correct.
-        // This used to be `xcb::NONE`.
-        visual: 0,
+        visual: x::Window::none().resource_id(),
         value_list: &[],
     });
 
