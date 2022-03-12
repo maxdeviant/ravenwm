@@ -76,7 +76,7 @@ fn main() -> xcb::Result<()> {
     let mut descriptors = FdSet::new();
 
     'ravenwm: loop {
-        conn.flush();
+        conn.flush()?;
 
         descriptors.clear();
         descriptors.insert(ipc_fd);
@@ -99,9 +99,6 @@ fn main() -> xcb::Result<()> {
                             if let Some(currently_focused_client) = focused_client {
                                 let is_icccm = false;
                                 if is_icccm {
-                                    let wm_protocols = dbg!(wm_protocols);
-                                    let wm_delete_window = dbg!(wm_delete_window);
-
                                     let event = x::ClientMessageEvent::new(
                                         currently_focused_client,
                                         wm_protocols.atom(),
@@ -367,7 +364,7 @@ fn main() -> xcb::Result<()> {
         window: meta_window,
     });
 
-    conn.flush();
+    conn.flush()?;
 
     Ok(())
 }
